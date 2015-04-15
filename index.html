@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>Don't waste your logs - the ELK stack</title>
+
+		<meta name="description" content="Using Elasticsearch, Logstash and Kibana to visualize your log data.">
+		<meta name="author" content="Gerhard Hipfinger">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/black.css" id="theme">
+
+		<!-- Code syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+
+				<section>
+					<h2>Don't waste your logs!</h2>
+					<h4>Using Elasticsearch, Logstash and Kibana to visualize your log data.</h4>
+					<p>
+						<small><a href="http://openforce.com">Gerhard Hipfinger</a> / <a href="http://twitter.com/nano4711">@nano4711</a></small>
+					</p>
+				</section>
+
+				<section>
+					<section>
+						<h3>What we did with our logs so far</h3>
+						<table>
+							<tbody>
+								<tr>
+									<td><img src="img/tail.jpg"></td>
+									<td style="vertical-align: middle;">
+										<p><span class="fragment">ssh user@host</span></p>
+										<p><span class="fragment">tail -f /var/log/yourlog.log</span></p>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</section>
+
+					<section>
+						<h3>Searching the ASCII art...</h3>
+						<pre><code style="word-wrap: break-word;">
+149.154.152.59 - - [12/Apr/2015:09:23:33 +0200] "GET /api/v1/timedata/tags HTTP/1.0" 200 3402 "-" "Pingdom.com_api_check"
+149.154.152.59 - - [12/Apr/2015:09:28:33 +0200] "GET /api/v1/timedata/tags HTTP/1.0" 200 396 "-" "Pingdom.com_api_check"
+149.154.152.59 - - [12/Apr/2015:09:33:33 +0200] "GET /api/v1/timedata/tags HTTP/1.0" 200 3402 "-" "Pingdom.com_api_check"
+85.125.36.34 - - [12/Apr/2015:09:35:32 +0200] "GET / HTTP/1.1" 302 3586 "-" "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"
+85.125.36.34 - - [12/Apr/2015:09:35:32 +0200] "GET /itstime/ HTTP/1.1" 302 405 "-" "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"
+85.125.36.34 - - [12/Apr/2015:09:35:32 +0200] "GET /itstime/track;jsessionid=1DD361D36CE2B8E1BA39298A54DE21F5 HTTP/1.1" 200 21998 "-" "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"
+85.125.36.34 - - [12/Apr/2015:09:35:34 +0200] "GET /itstime/resources/com.openforce.timejim.wicket.common.DateFilterPanel/DateFilterPanelDatepickerLocale.js HTTP/1.1" 304 245 "https://time.jimssquare.com/itstime/track;jsessionid=1DD361D36CE2B8E1BA39298A54DE21F5" "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"
+85.125.36.34 - - [12/Apr/2015:09:35:34 +0200] "GET /itstime/resources/org.apache.wicket.markup.html.WicketEventReference/wicket-event.js HTTP/1.1" 304 245 "https://time.jimssquare.com/itstime/track;jsessionid=1DD361D36CE2B8E1BA39298A54DE21F5" "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"
+85.125.36.34 - - [12/Apr/2015:09:35:34 +0200] "GET /itstime/resources/org.apache.wicket.ajax.WicketAjaxReference/wicket-ajax.js HTTP/1.1" 304 245 "https://time.jimssquare.com/itstime/track;jsessionid=1DD361D36CE2B8E1BA39298A54DE21F5" "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"
+						</code></pre>
+
+						<p>It's time to do it better</p>
+					</section>
+				</section>
+
+				<section>
+					<h3>Common issues in developers world</h3>
+					<ul>
+						<li>Logs are distributed in our cloud infrastructure</li>
+						<li>Logs are unstructured and different for different services</li>
+						<li>DEV normally don't want to have access to production systems</li>
+						<li>Command line tools are powerful, but UI/UX is limited</li>
+					</ul>
+				</section>
+
+				<section>
+					<h3>Logstash</h3>
+					<table>
+						<tbody>
+							<tr>
+								<td>
+									<img src="img/logstash.png" style="border: none; background: none;">
+								</td>
+								<td style="vertical-align: middle;">
+									<ul>
+										<li>managing event streams (logs)</li>
+										<li>collecting data</li>
+										<li>parse data</li>
+										<li>enrich data</li>
+										<li>store data</li>
+									</ul>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</section>
+
+				<section>
+					<h3>Logstash pipeline</h3>
+					<table>
+						<thead>
+							<tr>
+								<th>Input</th>
+								<th>Filter</th>
+								<th>Output</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>
+									Apache Logs<br>
+									Mail Server Logs<br>
+									Database Logs<br>
+									Log4J Logs<br>
+									files<br>
+									stdin<br>
+									tcp<br>
+									messaging systems<br>
+									redis<br>
+									about 40 others
+								</td>
+								<td>
+									GROK<br>
+									Date<br>
+									GeoIP<br>
+									Anonymize<br>
+									csv<br>
+									about 50 others
+								</td>
+								<td>
+									Elasticsearch<br>
+									Graphite<br>
+									Nagios<br>
+									redis<br>
+									messaging systems<br>
+									about 60 others
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					<p><small>See the Logstash docs for a complete list</small></p>
+				</section>
+
+				<section>
+					<h3>Simple echo configuration</h3>
+					<pre><code>
+input {
+  stdin {}
+}
+
+output {
+  stdout { codec => rubydebug }
+}						
+					</code></pre>
+					<p>Start in command line with</p>
+					<pre><code>bin/logstash -f 00-simple-echo.conf</code></pre>
+				</section>
+
+				<section>
+					<h3>Look at the output</h3>
+					<p>Output is in Json format</p>
+					<pre><code>
+{
+       "message" => "this is a super cool log message.",
+      "@version" => "1",
+    "@timestamp" => "2015-04-15T04:54:30.021Z",
+          "host" => "ushuaia"
+}				
+					</code></pre>
+					<ul>
+						<li>message: The original input</li>
+						<li>@version: internal Logstash field</li>
+						<li>@timestamp: The timestampt the message was received</li>
+						<li>host: Logstash hostname</li>
+					</ul>
+				</section>
+
+				<section>
+					<h3>Now apply a simple filter</h3>
+					<pre><code style="word-wrap: break-word;">
+input {
+  stdin {}
+}
+
+filter {
+  grok {
+    match => [ "message", "%{WORD: firstname} %{WORD: lastname} %{NUMBER:age}"]
+  }
+}
+
+output {
+  stdout { codec => rubydebug }
+}						
+					</code></pre>
+				</section>
+
+				<section>
+					<h3>Filtered output</h3>
+					<pre><code style="word-wrap: break-word;">
+{
+       "message" => "Gerhard Hipfinger 39",
+      "@version" => "1",
+    "@timestamp" => "2015-04-15T05:16:47.525Z",
+          "host" => "ushuaia",
+     "firstname" => "Gerhard",
+      "lastname" => "Hipfinger",
+           "age" => "39"
+}						
+					</code></pre>
+					<p>simple, isn't it?</p>
+				</section>
+
+				<section>
+					<h3>Summary</h3>
+					<ul>
+						<li>Logstash is a simple filtering I/O pipeline for events</li>
+						<li>As the Unix pipe | you can use the output as input for another pipeline</li>
+						<li>You can setup complex distributed systems</li>
+						<li>Great for high performance and great scalability</li>
+					</ul>
+				</section>
+
+				<section>
+					<img src="img/elasticsearch.png" style="border: none; background: none;">
+					<ul>
+						<li>A distributed full text search engine based on Apache Lucene.</li>
+						<li>Automatic sharding and data distribution.</li>
+						<li>HTTP and JSON based.</li>
+						<li>This makes it a perfect match as a Logstash output storage.</li>
+					</ul>
+				</section>
+
+				<section>
+					<h3>Kibana</h3>
+					<img src="img/kibana-dash.png">
+				</section>
+
+				<section>
+					<p>DEMO</p>
+				</section>
+
+				<section>
+					<p>Q &amp; A</p>
+				</section>
+
+				<section>
+						<p>Gerhard Hipfinger</p>
+						<small>Founder of openForce</small>	
+						<p>We are here to help you with Scala and Java projects.</p>
+						<p>Strong in frontend development with JavaScript/AngularJS.</p>
+						<p>We love mobile development too.</p>
+						<p>Always looking for great developers, designers, system engineers - you got it...</p>
+						<p>Twitter: <a href="http://www.twitter.com/nano4711">@nano4711</a></p>
+					</ul>
+				</section>
+
+			</div>
+
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+
+			// Full list of configuration options available at:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+				// Optional reveal.js plugins
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, condition: function() { return !!document.querySelector( 'pre code' ); }, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true },
+					{ src: 'plugin/notes/notes.js', async: true }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
